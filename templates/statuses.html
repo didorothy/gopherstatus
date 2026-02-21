@@ -1,0 +1,139 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+<table class="table table-striped">
+    <thead class="table-dark">
+        <tr>
+            <th>Service</th>
+            <th>Status</th>
+            <th>Actions</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for service, status in statuses %}
+        <tr id="service_{{ service }}">
+            <th>{{ service|title }}</th>
+            <td>
+                <span class="badge {% if status.0 == 'Running' %}text-bg-success{% elif status.0 == 'Stopped' %}text-bg-danger{% else %}text-bg-secondary{% endif %}" title="{{ status.1 }}">{{ status.0 }}</span>
+            </td>
+            <td>
+                <button type="button" class="btn btn-sm btn-danger btn-stop{% if status.0 != 'Running' %} d-none{% endif %}" onclick="stop_service('{{ service }}')">Stop</button>
+                <button type="button" class="btn btn-sm btn-success btn-start{% if status.0 == 'Running' %} d-none{% endif %}" onclick="start_service('{{ service }}')">Start</button>
+            </td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+
+{% endblock %}
+
+{% block extra_js %}
+<script type="text/javascript">
+    // Maps status integer to strings.
+    const statuses = [
+        'Running',
+        'Stopped',
+        'Error'
+    ];
+
+    /**
+     * Loops over all services and updates their status.
+     */
+    async function update_all_statuses() {
+        let services = document.querySelectorAll('table tbody tr');
+        for(let service of services) {
+            let service_name = service.id.substring(8);
+            await update_status(service_name);
+        }
+    }
+
+    /**
+     * Update the display of the status badge based on the StatusResult.
+     */
+    function update_status_badge(service_name, result) {
+        let service_badge = document.querySelector('#service_' + service_name + ' .badge');
+        service_badge.classList.remove('text-bg-success', 'text-bg-danger', 'text-bg-secondary')
+        service_badge.innerHTML = statuses[result.Status];
+        service_badge.title = result.Description;
+        switch(result.Status) {
+            case 0:
+                service_badge.classList.add('text-bg-success');
+                break;
+            case 1:
+                service_badge.classList.add('text-bg-danger');
+                break;
+            case 2:
+                service_badge.classList.add('text-bg-secondary');
+                break;
+        }
+    }
+
+    /**
+     * Update the correct Start or Stop button to display based on the status.
+     */
+    function update_start_stop_button_display(service_name, status) {
+        let start_button = document.querySelector('#service_' + service_name + ' .btn-start');
+        let stop_button = document.querySelector('#service_' + service_name + ' .btn-stop');
+        if(status === 0) {
+            start_button.classList.add('d-none');
+            stop_button.classList.remove('d-none');
+        } else {
+            start_button.classList.remove('d-none');
+            stop_button.classList.add('d-none');
+        }
+    }
+
+    /**
+     * Requests an update to the status for a service from the server.
+     */
+    async function update_status(service_name) {
+        let response = await fetch('/status/' + service_name + '/', {method: 'post'});
+        if(response.ok) {
+            let result = await response.json();
+
+            update_status_badge(service_name, result);
+            update_start_stop_button_display(service_name, result.Status)
+        } else {
+            console.log('An error occurred.');
+        }
+    }
+
+    /**
+     * Execute a Start on a service.
+     */
+    async function start_service(service_name) {
+        let response = await fetch('/start/' + service_name + '/', {method: 'post'});
+        if(response.ok) {
+            let result = await response.json();
+
+            // TODO: make a notification
+            console.log(result)
+
+        } else {
+            // TODO: make a notification
+            console.log('An error occurred.');
+        }
+        update_status(service_name);
+    }
+
+    /**
+     * Execute a Stop on a service.
+     */
+    async function stop_service(service_name) {
+        let response = await fetch('/stop/' + service_name + '/', {method: 'post'})
+        if(response.ok) {
+            let result = await response.json();
+            // TODO: make a notification
+            console.log(result)
+        } else {
+            // TODO: make a notification
+            console.log('An error occurred.');
+        }
+        update_status(service_name);
+    }
+
+    // Update the statuses every 5 minutes.
+    setInterval(update_all_statuses, 5 * 60 * 1000);
+</script>
+{% endblock %}
