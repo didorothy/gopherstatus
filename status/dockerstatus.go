@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"os/exec"
+	"strings"
 )
 
 type DockerStatusManager struct {
@@ -32,21 +33,21 @@ func (manager *DockerStatusManager) Status() StatusResponse {
 			Description: stderr.String(),
 		}
 	}
-	if stdout.String() == "running" {
+	if strings.TrimSpace(stdout.String()) == "running" {
 		return StatusResponse{
 			Status:      StatusRunning,
-			Description: "",
+			Description: stdout.String(),
 		}
 	} else {
 		return StatusResponse{
 			Status:      StatusStopped,
-			Description: "",
+			Description: stdout.String(),
 		}
 	}
 }
 
 func (manager *DockerStatusManager) Start() ActionResult {
-	arguments := []string{"--name", manager.ContainerName}
+	arguments := []string{"run", "--name", manager.ContainerName}
 	arguments = append(arguments, manager.Arguments...)
 	arguments = append(arguments, manager.Image)
 	cmd := exec.Command("docker", arguments...)
